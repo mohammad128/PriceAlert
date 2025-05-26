@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('price_alerts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->unsignedTinyInteger('price');
-            $table->timestamps();
+            $table->unsignedBigInteger('price');
+            $table->timestamp('created_at')->useCurrent();
         });
     }
 
