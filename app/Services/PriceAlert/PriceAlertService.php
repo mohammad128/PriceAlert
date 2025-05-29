@@ -13,7 +13,7 @@ class PriceAlertService implements PriceAlertServiceInterface
 
     public function addPriceAlert(PriceAlert $alert): void
     {
-        Redis::rpush(PriceAlertService::PRICE_ALERT_LIST_PREFIX_KEY.$alert->price, $alert->id);
+        Redis::rpush(PriceAlertService::PRICE_ALERT_LIST_PREFIX_KEY.$alert->price, json_encode($alert->toArray()));
         Redis::zadd(PriceAlertService::PRICE_ALERT_PRICES_KEY, $alert->price, $alert->price);
     }
 
@@ -21,27 +21,52 @@ class PriceAlertService implements PriceAlertServiceInterface
     {
         $alerts = [];
 
-        $priceKey = PriceAlertService::PRICE_ALERT_PRICES_KEY;
-
-        $prices = Redis::zrangebyscore(PriceAlertService::PRICE_ALERT_PRICES_KEY, '-inf', $currentPrice);
+        $prices = $this->fetchActivatedPrices($currentPrice);
 
         foreach ($prices as $price) {
-            $alertIdsKey = PriceAlertService::PRICE_ALERT_LIST_PREFIX_KEY.$price;
-            $alertIds = Redis::lrange($alertIdsKey, 0, -1);
-
+            $alertIds = $this->fetchStoredAlerts($price);
             if (! empty($alertIds)) {
                 $alerts[$price] = $alertIds;
-
-                Redis::del($alertIdsKey);
-                Redis::zrem($priceKey, $price);
             }
+            $this->deleteStoredAlerts($price);
         }
 
         return $alerts;
     }
 
-    public function recoverData()
+    public function recoverData(): void
     {
-        // TODO: Recover data from the database when a problem occurs.
+        // Clear Redis
+        $prices = Redis::zrange(PriceAlertService::PRICE_ALERT_PRICES_KEY, 0, -1);
+
+        foreach ($prices as $price) {
+            $alertIdsKey = PriceAlertService::PRICE_ALERT_LIST_PREFIX_KEY.$price;
+            Redis::del($alertIdsKey);
+            Redis::zrem(PriceAlertService::PRICE_ALERT_PRICES_KEY, $price);
+        }
+
+        // Recover Data From Database
+        PriceAlert::all()->each(function ($priceAlert) {
+            $this->addPriceAlert($priceAlert);
+        });
+    }
+
+    private function fetchStoredAlerts(int $price): array
+    {
+        $alertIdsKey = PriceAlertService::PRICE_ALERT_LIST_PREFIX_KEY.$price;
+
+        return Redis::lrange($alertIdsKey, 0, -1);
+    }
+
+    private function deleteStoredAlerts(int $price): void
+    {
+        $alertIdsKey = PriceAlertService::PRICE_ALERT_LIST_PREFIX_KEY.$price;
+        Redis::del($alertIdsKey);
+        Redis::zrem(PriceAlertService::PRICE_ALERT_PRICES_KEY, $price);
+    }
+
+    private function fetchActivatedPrices(int $currentPrice)
+    {
+        return Redis::zrangebyscore(PriceAlertService::PRICE_ALERT_PRICES_KEY, '-inf', $currentPrice);
     }
 }
