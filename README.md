@@ -40,7 +40,7 @@ composer install
 cp .env.example .env
 ```
 ###### Then set environments in .env.
-###### add command php artisan schedule:run to crontab
+###### add command `php artisan schedule:run` to crontab
 ```bash 
 php artisan key:generate
 ```
@@ -61,6 +61,7 @@ tail -f storage/logs/laravel.log
 
 ___
 ## Test Endpoint`s
+### Add Alert
 ```bash 
 curl --location 'http://127.0.0.1:8080/api/set-alert' \
 --header 'Content-Type: application/json' \
@@ -69,4 +70,11 @@ curl --location 'http://127.0.0.1:8080/api/set-alert' \
     "user_id": 1,
     "price": 1000
 }'
+```
+
+### Get Current Gold Price
+```bash 
+curl --location --request POST 'http://127.0.0.1:8080/api/current-price' \
+--header 'Content-Type: application/json' \
+--header 'Accept: application/json'
 ```
